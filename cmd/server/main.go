@@ -3,9 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -27,18 +26,41 @@ func main() {
 		log.Fatalf("could not create channel: %v", err)
 	}
 
-	err = pubsub.PublishJSON(ch, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{
-		IsPaused: true,
-	})
+	gamelogic.PrintServerHelp()
+	for {
+		words := gamelogic.GetInput()
 
-	if err != nil {
-		log.Printf("could not publish time: %s", err)
+		if len(words) == 0 {
+			continue
+		}
+
+		cmd := words[0]
+
+		switch cmd {
+		case "pause":
+			err = pubsub.PublishJSON(ch, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{
+				IsPaused: true,
+			})
+
+			if err != nil {
+				log.Printf("could not publish time: %s", err)
+			}
+			fmt.Println("Pause message sent!")
+		case "resume":
+			err = pubsub.PublishJSON(ch, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{
+				IsPaused: false,
+			})
+
+			if err != nil {
+				log.Printf("could not publish time: %s", err)
+			}
+			fmt.Println("Resume message sent!")
+		case "quit":
+			fmt.Println("Exiting...")
+			return
+		default:
+			fmt.Println("unknow command")
+		}
+
 	}
-	fmt.Println("Pause message sent!")
-
-	// wait for ctrl+c
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	<-signalChan
-	fmt.Println("RabbitMQ connection closed.")
 }
