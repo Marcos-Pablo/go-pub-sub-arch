@@ -53,8 +53,24 @@ func main() {
 		"army_moves."+username,
 		routing.ArmyMovesPrefix+".*",
 		pubsub.Transient,
-		handlerMove(gs),
+		handlerMove(gs, publishCh),
 	)
+
+	if err != nil {
+		log.Fatalf("Error subscribing to army moves topic: %s", err)
+	}
+
+	err = pubsub.SubscribeJSON(conn,
+		routing.ExchangePerilTopic,
+		routing.WarRecognitionsPrefix,
+		routing.WarRecognitionsPrefix+".*",
+		pubsub.Durable,
+		handlerWar(gs),
+	)
+
+	if err != nil {
+		log.Fatalf("Error subscribing to war topic: %s", err)
+	}
 
 	for {
 		words := gamelogic.GetInput()
