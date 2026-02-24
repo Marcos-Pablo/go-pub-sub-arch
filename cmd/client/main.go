@@ -30,15 +30,14 @@ func main() {
 	}
 
 	queueName := fmt.Sprintf("pause.%s", username)
+	gs := gamelogic.NewGameState(username)
 
-	_, queue, err := pubsub.DeclareAndBind(conn, routing.ExchangePerilDirect, queueName, routing.PauseKey, pubsub.Transient)
+	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, queueName, routing.PauseKey, pubsub.Transient, handlerPause(gs))
 
 	if err != nil {
-		log.Fatalf("Error declaring and binding queue: %s", err)
+		log.Fatalf("Error subscribing to pause topic: %s", err)
 	}
-	fmt.Printf("Queue %s declared and bound!\n", queue.Name)
 
-	gs := gamelogic.NewGameState(username)
 	for {
 		words := gamelogic.GetInput()
 
