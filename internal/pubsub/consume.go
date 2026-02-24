@@ -2,6 +2,7 @@ package pubsub
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -12,6 +13,14 @@ type SimpleQueueType int
 const (
 	Transient SimpleQueueType = iota
 	Durable
+)
+
+type AckType int
+
+const (
+	Ack AckType = iota
+	NackRequeue
+	NackDiscard
 )
 
 func DeclareAndBind(
@@ -52,7 +61,7 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	queueType SimpleQueueType,
-	handler func(T),
+	handler func(T) AckType,
 ) error {
 	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 
@@ -76,13 +85,31 @@ func SubscribeJSON[T any](
 				log.Printf("error unmarshalling mesage body: %s", err)
 				continue
 			}
-			handler(data)
-			err = msg.Ack(false)
-
-			if err != nil {
-				log.Printf("error acknowledging message: %s", err)
-				continue
+			ackType := handler(data)
+			switch ackType {
+			case Ack:
+				err = msg.Ack(false)
+				if err != nil {
+					log.Printf("unable to ack the message: %s", err)
+					continue
+				}
+				fmt.Println("Successfully acked message")
+			case NackRequeue:
+				err = msg.Nack(false, true)
+				if err != nil {
+					log.Printf("unable to nack requeue the message: %s", err)
+					continue
+				}
+				fmt.Println("Successfully nack-requeued message")
+			case NackDiscard:
+				err = msg.Nack(false, false)
+				if err != nil {
+					log.Printf("unable to nack discard the message: %s", err)
+					continue
+				}
+				fmt.Println("Successfully nack-discarded message")
 			}
+
 		}
 	}()
 	return nil
